@@ -61,6 +61,7 @@ namespace ctranslate2 {
       void* allocate(size_t size, int device_index) override {
         void* ptr = nullptr;
         CUDA_CHECK(_allocator->DeviceAllocate(device_index, &ptr, size, cuda::get_cuda_stream()));
+        cuda::check_pending_error("after", "CachingDeviceAllocator::DeviceAllocate", __FILE__, __LINE__);
         return ptr;
       }
 

@@ -77,7 +77,9 @@ namespace ctranslate2 {
 
 #define CUBLAS_CHECK(ans)                                               \
     {                                                                   \
+      ctranslate2::cuda::check_pending_error("before", "cuBLAS call", __FILE__, __LINE__); \
       cublasStatus_t status = (ans);                                    \
+      ctranslate2::cuda::check_pending_error("after", "cuBLAS call", __FILE__, __LINE__); \
       if (status != CUBLAS_STATUS_SUCCESS)                              \
         THROW_RUNTIME_ERROR("cuBLAS failed with status "                \
                             + std::string(ctranslate2::cuda::cublasGetStatusName(status))); \
@@ -98,6 +100,12 @@ namespace ctranslate2 {
     }
 
     const char* cublasGetStatusName(cublasStatus_t status);
+
+    // Logs and clears an error that a previous CUDA call on this host thread left
+    // without reporting it. Thrust reports cudaPeekAtLastError() after its kernel
+    // launches, so such a stale error would otherwise be misreported as a failure of
+    // the Thrust call. "when" and "call" locate the check in the log.
+    void check_pending_error(const char* when, const char* call, const char* file, int line);
 
     cudaStream_t get_cuda_stream();
     cublasHandle_t get_cublas_handle();
@@ -135,25 +143,14 @@ namespace ctranslate2 {
       const bool _scope_value;
     };
 
-    // Throws if a previous CUDA call on this host thread left an error that was never
-    // cleared. Thrust reports cudaPeekAtLastError() after its kernel launches, so such
-    // a stale error would otherwise be misreported as a failure of the Thrust call.
-    inline void check_pending_error(const char* call, const char* file, int line) {
-      const cudaError_t status = cudaGetLastError();
-      if (status != cudaSuccess)
-        throw std::runtime_error(std::string("Pending CUDA error before ") + call
-                                 + " (" + file + ":" + std::to_string(line) + "): "
-                                 + cudaGetErrorString(status));
-    }
-
 // Convenience macro to call Thrust functions with a default execution policy.
 #ifdef CT2_USE_HIP
 #define THRUST_CALL(FUN, ...)                                           \
-  (ctranslate2::cuda::check_pending_error(#FUN, __FILE__, __LINE__),    \
+  (ctranslate2::cuda::check_pending_error("before", #FUN, __FILE__, __LINE__),    \
    FUN(thrust::hip::par_nosync.on(ctranslate2::cuda::get_cuda_stream()), __VA_ARGS__))
 #else
 #define THRUST_CALL(FUN, ...)                                           \
-  (ctranslate2::cuda::check_pending_error(#FUN, __FILE__, __LINE__),    \
+  (ctranslate2::cuda::check_pending_error("before", #FUN, __FILE__, __LINE__),    \
    FUN(thrust::cuda::par_nosync.on(ctranslate2::cuda::get_cuda_stream()), __VA_ARGS__))
 #endif
 

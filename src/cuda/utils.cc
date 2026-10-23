@@ -3,7 +3,9 @@
 #include <atomic>
 #include <cstdlib>
 #include <memory>
+#include <functional>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
 #include <spdlog/spdlog.h>
@@ -67,6 +69,20 @@ namespace ctranslate2 {
       default:
         return "UNKNOWN";
       }
+    }
+
+    void check_pending_error(const char* when, const char* call, const char* file, int line) {
+      static std::atomic<size_t> num_pending_errors(0);
+      const cudaError_t status = cudaGetLastError();
+      if (status != cudaSuccess)
+        spdlog::warn("Pending CUDA error #{} {} {} ({}:{}) on thread {}: {}",
+                     ++num_pending_errors,
+                     when,
+                     call,
+                     file,
+                     line,
+                     std::hash<std::thread::id>()(std::this_thread::get_id()),
+                     cudaGetErrorString(status));
     }
 
     // We assign the default CUDA stream to the main thread since it can interact with
