@@ -14,6 +14,8 @@
 #  include <unistd.h>
 #endif
 
+#include <spdlog/spdlog.h>
+
 #include "device_dispatch.h"
 
 namespace ctranslate2 {
@@ -108,7 +110,10 @@ namespace ctranslate2 {
 #ifdef CT2_WITH_CUDA
     if (device == Device::CUDA) {
       const ScopedDeviceSetter scoped_device_setter(device, index);
-      cudaDeviceSynchronize();
+      const cudaError_t status = cudaDeviceSynchronize();
+      if (status != cudaSuccess)
+        spdlog::warn("cudaDeviceSynchronize failed in synchronize_device: {}",
+                     cudaGetErrorString(status));
     }
 #else
     (void)device;
@@ -119,7 +124,10 @@ namespace ctranslate2 {
   void synchronize_stream(Device device) {
 #ifdef CT2_WITH_CUDA
     if (device == Device::CUDA) {
-      cudaStreamSynchronize(cuda::get_cuda_stream());
+      const cudaError_t status = cudaStreamSynchronize(cuda::get_cuda_stream());
+      if (status != cudaSuccess)
+        spdlog::warn("cudaStreamSynchronize failed in synchronize_stream: {}",
+                     cudaGetErrorString(status));
     }
 #else
     (void)device;

@@ -65,7 +65,10 @@ namespace ctranslate2 {
       }
 
       void free(void* ptr, int device_index) override {
-        _allocator->DeviceFree(device_index, ptr);
+        const cudaError_t status = _allocator->DeviceFree(device_index, ptr);
+        if (status != cudaSuccess)
+          spdlog::warn("CachingDeviceAllocator::DeviceFree failed (device {}): {}",
+                       device_index, cudaGetErrorString(status));
       }
 
       void clear_cache() override {

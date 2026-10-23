@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include <spdlog/spdlog.h>
+
 #include "ctranslate2/utils.h"
 
 #include "env.h"
@@ -86,7 +88,10 @@ namespace ctranslate2 {
       ~CudaStream() {
         if (_stream != cudaStreamDefault) {
           ScopedDeviceSetter scoped_device_setter(Device::CUDA, _device);
-          cudaStreamDestroy(_stream);
+          const cudaError_t status = cudaStreamDestroy(_stream);
+          if (status != cudaSuccess)
+            spdlog::warn("cudaStreamDestroy failed (device {}): {}",
+                         _device, cudaGetErrorString(status));
         }
       }
       cudaStream_t get() const {
